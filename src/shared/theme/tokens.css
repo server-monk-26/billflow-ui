@@ -1,0 +1,220 @@
+/*
+ * BillFlow design tokens — the single source of truth for color, type, spacing,
+ * radius, and elevation (Design Spec §02–§07). Every value resolves from a CSS
+ * custom property keyed off `data-*` attributes on <html>/<body>:
+ *
+ *   data-theme    light | dark            (full neutral + accent ramp swap)
+ *   data-accent   rose | indigo | emerald | amber
+ *   data-density  compact | comfortable   (row heights, padding, base font size)
+ *   data-radius   sharp | normal | round
+ *   data-sidebar  labeled | icon
+ *   data-font     geist | plex | manrope
+ *
+ * Components consume var(--token) only and inherit every axis for free.
+ * The MUI theme (muiTheme.ts) is built to reference these same variables.
+ */
+
+:root {
+  /* Spacing — 4px base unit (Design Spec §06). Always use flex/grid gap between siblings. */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-12: 48px;
+
+  /* Type scale (Design Spec §05) */
+  --fs-title: 22px; /* page title       — 600 / -0.02em */
+  --fs-h2: 16px; /* section heading  — 600 */
+  --fs-card: 15px; /* card/group title — 600 */
+  --fs-label: 12px; /* labels/secondary — 500 */
+  --fs-eyebrow: 11px; /* eyebrow/col head — 600 / caps */
+  --lh-body: 1.5;
+
+  /* Topbar / shell */
+  --topbar-h: 52px;
+
+  /* Semantic foreground (shared across themes; soft backgrounds vary per theme below) */
+  --success: oklch(0.55 0.14 155);
+  --warning: oklch(0.62 0.14 70);
+  --danger: oklch(0.55 0.2 25);
+  --info: oklch(0.55 0.13 245);
+}
+
+/* ---------------------------------------------------------------------------
+ * Theme axis — neutrals (Design Spec §03)
+ * ------------------------------------------------------------------------- */
+[data-theme='light'] {
+  color-scheme: light;
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --surface-2: #f5f5f5;
+  --surface-hi: #ffffff;
+
+  --border: #e7e7e7;
+  --border-strong: #d4d4d4;
+
+  --text: #0a0a0a;
+  --text-2: #525252;
+  --text-3: #8a8a8a;
+
+  --accent-contrast: #ffffff;
+
+  --success-soft: oklch(0.96 0.04 155);
+  --warning-soft: oklch(0.96 0.05 75);
+  --danger-soft: oklch(0.96 0.04 25);
+  --info-soft: oklch(0.96 0.03 245);
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0a0a0a;
+  --surface: #131313;
+  --surface-2: #181818;
+  --surface-hi: #1c1c1c;
+
+  --border: #232323;
+  --border-strong: #303030;
+
+  --text: #fafafa;
+  --text-2: #a3a3a3;
+  --text-3: #707070;
+
+  --accent-contrast: #ffffff;
+
+  --success-soft: oklch(0.28 0.06 155);
+  --warning-soft: oklch(0.3 0.06 75);
+  --danger-soft: oklch(0.28 0.08 25);
+  --info-soft: oklch(0.28 0.06 245);
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------------------------------------------------------------------------
+ * Accent axis (Design Spec §04) — one oklch hue drives base/hover/soft.
+ * Rose is the default brand accent.
+ * ------------------------------------------------------------------------- */
+[data-accent='rose'] {
+  --accent-hue: 14;
+}
+[data-accent='indigo'] {
+  --accent-hue: 264;
+}
+[data-accent='emerald'] {
+  --accent-hue: 162;
+}
+[data-accent='amber'] {
+  --accent-hue: 70;
+}
+
+[data-theme='light'] {
+  --accent: oklch(0.58 0.17 var(--accent-hue, 14));
+  --accent-hover: oklch(0.52 0.18 var(--accent-hue, 14));
+  --accent-soft: oklch(0.96 0.025 var(--accent-hue, 14));
+}
+[data-theme='dark'] {
+  --accent: oklch(0.65 0.18 var(--accent-hue, 14));
+  --accent-hover: oklch(0.72 0.18 var(--accent-hue, 14));
+  --accent-soft: oklch(0.25 0.07 var(--accent-hue, 14));
+}
+
+/* ---------------------------------------------------------------------------
+ * Density axis (Design Spec §06)
+ * ------------------------------------------------------------------------- */
+[data-density='compact'] {
+  --row-h: 32px;
+  --row-h-lg: 40px;
+  --pad-x: 12px;
+  --gap: 8px;
+  --fs-body: 13px;
+}
+[data-density='comfortable'] {
+  --row-h: 44px;
+  --row-h-lg: 56px;
+  --pad-x: 16px;
+  --gap: 12px;
+  --fs-body: 14px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Radius axis (Design Spec §07)
+ * ------------------------------------------------------------------------- */
+[data-radius='sharp'] {
+  --r-sm: 0px;
+  --r: 0px;
+  --r-lg: 0px;
+}
+[data-radius='normal'] {
+  --r-sm: 4px;
+  --r: 6px;
+  --r-lg: 10px;
+}
+[data-radius='round'] {
+  --r-sm: 8px;
+  --r: 12px;
+  --r-lg: 18px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Sidebar axis (Design Spec §10 — app shell)
+ * ------------------------------------------------------------------------- */
+[data-sidebar='labeled'] {
+  --sidebar-w: 220px;
+}
+[data-sidebar='icon'] {
+  --sidebar-w: 52px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Font axis (Design Spec §05) — Geist is canonical; alternates are tokenized.
+ * ------------------------------------------------------------------------- */
+[data-font='geist'] {
+  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
+}
+[data-font='plex'] {
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+}
+[data-font='manrope'] {
+  --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
+}
+
+/* ---------------------------------------------------------------------------
+ * Base element styling driven by tokens.
+ * ------------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'cv11', 'ss01', 'ss03'; /* Geist stylistic sets (Design Spec §05) */
+}
+
+/* Numerics are first-class: monospace + tabular figures (Design Spec P4). */
+.mono,
+[data-mono] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}

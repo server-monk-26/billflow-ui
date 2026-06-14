@@ -1,0 +1,40 @@
+{
+  "app": {
+    "name": "BillFlow"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "invoices": "Invoices",
+    "customers": "Customers",
+    "settings": "Settings"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "create": "Create",
+    "signOut": "Sign out",
+    "retry": "Retry"
+  },
+  "states": {
+    "loading": "Loading…",
+    "empty": "Nothing here yet",
+    "error": "Something went wrong"
+  },
+  "errors": {
+    "notFound": {
+      "title": "Page not found",
+      "body": "The page you're looking for doesn't exist or has moved."
+    },
+    "forbidden": {
+      "title": "Access denied",
+      "body": "You don't have permission to view this page."
+    },
+    "boundary": {
+      "title": "Unexpected error",
+      "body": "An unexpected error occurred. Try again, or contact support if it persists."
+    }
+  },
+  "theme": {
+    "toggle": "Toggle theme"
+  }
+}
