@@ -14,5 +14,27 @@
       "username": "Username is required",
       "password": "Password is required"
     }
+  },
+  "reset": {
+    "backToLogin": "Back to login",
+    "title": "Reset password",
+    "subtitle": "for {{userId}}",
+    "newPassword": "New password",
+    "newPasswordPlaceholder": "Enter a new password",
+    "submit": "Reset password",
+    "notStrong": "Password is not strong enough yet",
+    "strengthLabel": "Password strength",
+    "strength": {
+      "weak": "Weak",
+      "medium": "Medium",
+      "strong": "Strong"
+    },
+    "rules": {
+      "length": "At least 8 characters",
+      "uppercase": "One uppercase letter",
+      "lowercase": "One lowercase letter",
+      "number": "One number",
+      "special": "One special character"
+    }
   }
 }
