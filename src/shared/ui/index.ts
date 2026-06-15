@@ -7,3 +7,5 @@ export { Button } from './Button';
 export type { ButtonProps, ButtonVariant, ButtonSize } from './Button';
 export { Loader } from './Loader';
 export type { LoaderProps } from './Loader';
+export { TextInput } from './TextInput';
+export type { TextInputProps } from './TextInput';

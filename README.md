@@ -18,7 +18,7 @@ TanStack Table · Recharts · react-i18next · Vitest + RTL + MSW · Playwright.
 | Decision | Choice |
 |----------|--------|
 | UI library | **Material UI**, themed from the design tokens. The chosen library is confined to `shared/ui` + `shared/theme`. |
-| Token storage | Access token **in memory** (mirrored to sessionStorage for reload survival); **refresh token in an httpOnly Secure cookie** set by the backend. Centralized in `shared/auth/tokenStorage.ts`. |
+| Token storage | Tokens are **client-stored**: access token in memory (mirrored to sessionStorage for reload survival), refresh token + session id in sessionStorage. Centralized in `shared/auth/tokenStorage.ts`. Identity (userId/tenantId/roles) is decoded from the JWT. _(Backend integration deferred — login currently runs as a local dev stub; see below.)_ |
 | Tenant resolution | From the **auth claim** at login. `X-Tenant-Id` attached by the Axios interceptor. |
 | Feature flags | Static config now (`shared/feature-flags`), interface ready for a SaaS provider later. |
 | Logging/audit sink | Configurable endpoint via `config` (`VITE_LOG_REMOTE_URL`, `VITE_AUDIT_ENDPOINT`). |
@@ -44,8 +44,12 @@ npx msw init public                # generate the MSW worker (auto-runs on insta
 npm run dev                        # http://localhost:5173
 ```
 
-A **dev sign-in** stub on `/login` seeds a mock session so the shell, RBAC gating, and dynamic
-menus are demonstrable without a backend. Phase 3 replaces it with the real login feature.
+**Login** is at `/auth/login`. Backend integration is **deferred** — submitting establishes a
+session locally (no HTTP) via `features/auth/devAuth.ts`: any username/password signs in and goes
+to the dashboard, while username `newuser` simulates a first-time user routed to reset password.
+Swap `createDevSession` for the real RTK Query login mutation when wiring the backend (the
+Postman contract — enveloped `/api/auth/login`, SUCCESS vs PASSWORD_CHANGE_REQUIRED — is in git
+history).
 
 ## Scripts
 

@@ -1,0 +1,18 @@
+{
+  "login": {
+    "title": "Login",
+    "subtitle": "Welcome back to BillFlow",
+    "username": "Username",
+    "usernamePlaceholder": "Enter your username",
+    "password": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "forgotPassword": "Forgot password?",
+    "submit": "Login",
+    "noAccount": "New to BillFlow?",
+    "register": "Register",
+    "required": {
+      "username": "Username is required",
+      "password": "Password is required"
+    }
+  }
+}

@@ -18,8 +18,6 @@ import { toAppError } from './errors';
 export const axiosInstance = axios.create({
   baseURL: config.api.baseUrl,
   timeout: config.api.timeoutMs,
-  // Send the httpOnly refresh cookie on same-origin/credentialed requests (§10).
-  withCredentials: true,
 });
 
 // ---- Request interceptor: attach auth, tenant, session, correlation, locale ----
@@ -41,17 +39,28 @@ axiosInstance.interceptors.request.use((req: InternalAxiosRequestConfig) => {
 // ---- Refresh-token flow with stampede guard (single in-flight refresh) ----
 let refreshPromise: Promise<string | null> | null = null;
 
+interface RefreshData {
+  accessToken: string;
+  refreshToken?: string;
+  sessionId?: string;
+}
+
 async function refreshAccessToken(): Promise<string | null> {
-  // The refresh token is an httpOnly cookie sent automatically; no body needed.
-  const res = await axios.post<{ accessToken: string; sessionId?: string }>(
+  const refreshToken = tokenStorage.getRefreshToken();
+  if (!refreshToken) return null;
+
+  // Bare axios (not the instance) to avoid recursive interceptors.
+  // NOTE: endpoint/response shape will be confirmed when the backend is wired (deferred).
+  const res = await axios.post<RefreshData>(
     `${config.api.baseUrl}/auth/refresh`,
-    null,
-    { withCredentials: true, timeout: config.api.timeoutMs },
+    { refreshToken },
+    { timeout: config.api.timeoutMs },
   );
-  const { accessToken, sessionId } = res.data;
-  tokenStorage.setAccessToken(accessToken);
-  if (sessionId) tokenStorage.setSessionId(sessionId);
-  return accessToken;
+  const data = res.data;
+  tokenStorage.setAccessToken(data.accessToken);
+  if (data.refreshToken) tokenStorage.setRefreshToken(data.refreshToken);
+  if (data.sessionId) tokenStorage.setSessionId(data.sessionId);
+  return data.accessToken;
 }
 
 interface RetriableConfig extends AxiosRequestConfig {

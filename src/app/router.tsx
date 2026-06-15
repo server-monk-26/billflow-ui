@@ -3,30 +3,42 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from '@/shared/permissions';
 import { Loader } from '@/shared/ui';
 import { AppShell } from '@/app/layouts/AppShell';
+import { AuthLayout } from '@/app/layouts/AuthLayout';
 import { RouteErrorElement } from '@/app/ErrorBoundary';
 
 /**
- * Route tree (CLAUDE.md §12). Feature route components are lazy-loaded (code-split). The app
- * shell is wrapped in <ProtectedRoute> and an errorElement; the auth shell (/login) is public.
- * 404 and 403 are explicit. Feature routes will be injected here as features land (§20).
+ * Route tree (CLAUDE.md §12). Feature route components are lazy-loaded (code-split) via their
+ * public barrel (§3.7). The app shell is wrapped in <ProtectedRoute> + an errorElement; the
+ * auth shell (/auth) is public. 404/403 are explicit.
  */
+const Login = lazy(() => import('@/features/auth').then((m) => ({ default: m.Login })));
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
 const PlaceholderPage = lazy(() => import('@/pages/PlaceholderPage'));
-const LoginPage = lazy(() => import('@/pages/LoginPage'));
 const ForbiddenPage = lazy(() => import('@/pages/ForbiddenPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
-/** Wrap a lazy element in Suspense for routes rendered outside the shell's own Suspense. */
+/** Wrap a lazy element in Suspense for routes rendered outside a layout's own Suspense. */
 function lazyRoute(node: ReactNode): ReactNode {
   return <Suspense fallback={<Loader variant="page" />}>{node}</Suspense>;
 }
 
 export const router = createBrowserRouter([
   {
-    path: '/login',
-    element: lazyRoute(<LoginPage />),
+    path: '/auth',
+    element: <AuthLayout />,
     errorElement: <RouteErrorElement />,
+    children: [
+      { index: true, element: <Navigate to="/auth/login" replace /> },
+      { path: 'login', element: <Login /> },
+      // Built in a later phase; placeholders keep the links/redirects from 404ing.
+      // /auth/reset-password receives the passwordChangeToken via navigation state.
+      { path: 'reset-password', element: <PlaceholderPage /> },
+      { path: 'register', element: <PlaceholderPage /> },
+      { path: 'forgot-password', element: <PlaceholderPage /> },
+    ],
   },
+  // Back-compat: redirect the old auth path.
+  { path: '/login', element: <Navigate to="/auth/login" replace /> },
   {
     path: '/403',
     element: lazyRoute(<ForbiddenPage />),

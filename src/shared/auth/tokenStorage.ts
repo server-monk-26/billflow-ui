@@ -1,16 +1,19 @@
 /**
  * The single place tokens are read/written (CLAUDE.md §10). No scattered storage calls.
  *
- * Decision (confirmed): the refresh token lives in an httpOnly, Secure, SameSite cookie set
- * by the backend — JS cannot read it, so there is no refresh-token API here. The browser
- * sends it automatically on the refresh request (axios `withCredentials: true`).
+ * Token model (per the backend): the login response returns access + refresh tokens and a
+ * session id in the body — there is no httpOnly refresh cookie. Tokens are therefore
+ * client-stored:
+ * - Access token: in memory (lowest XSS exposure), mirrored to sessionStorage so a reload
+ *   survives without forcing re-login.
+ * - Refresh token + session id: sessionStorage. NOTE: client-stored refresh tokens carry an
+ *   XSS risk; mitigated by sessionStorage (cleared on tab close) + strict CSP/output encoding.
  *
- * - Access token: in memory only (lowest XSS exposure). Mirrored to sessionStorage so a
- *   page reload survives without forcing re-login; clear on logout.
- * - Session id: sessionStorage, sent as X-Session-Id by the request interceptor.
+ * The axios request interceptor reads the access token here synchronously on every request.
  */
 
 const ACCESS_KEY = 'billflow.at';
+const REFRESH_KEY = 'billflow.rt';
 const SESSION_KEY = 'billflow.sid';
 
 let accessToken: string | null = null;
@@ -42,6 +45,12 @@ export const tokenStorage = {
     accessToken = token;
     safeSet(ACCESS_KEY, token);
   },
+  getRefreshToken(): string | null {
+    return safeGet(REFRESH_KEY);
+  },
+  setRefreshToken(token: string | null): void {
+    safeSet(REFRESH_KEY, token);
+  },
   getSessionId(): string | null {
     return safeGet(SESSION_KEY);
   },
@@ -51,6 +60,7 @@ export const tokenStorage = {
   clear(): void {
     accessToken = null;
     safeSet(ACCESS_KEY, null);
+    safeSet(REFRESH_KEY, null);
     safeSet(SESSION_KEY, null);
   },
 };

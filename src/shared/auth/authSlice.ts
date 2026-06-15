@@ -1,34 +1,60 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import type { MenuItem, Session, User } from './schemas';
+import type { MenuItem, User } from './schemas';
 
 /**
- * Auth slice (CLAUDE.md §8, §10) — holds identity, server-driven roles/permissions,
- * menus, and feature-flag overrides. The access-token *value* used by the transport
- * lives in tokenStorage (synchronously readable by the axios interceptor); this slice
- * mirrors auth status for the UI. Permissions are dynamic — never hard-coded (§16.2).
+ * Auth slice (CLAUDE.md §8, §10). Holds the auth tokens (access/refresh/session — client-stored
+ * per the backend), the identity derived from the access-token claims (userId/tenantId/roles),
+ * and the fuller profile (user/permissions/menus) once it's fetched. Permissions are dynamic —
+ * never hard-coded (§16.2). The token *value* the transport uses is also kept in tokenStorage so
+ * the axios interceptor can read it synchronously.
  */
 
 export type AuthStatus = 'unauthenticated' | 'authenticating' | 'authenticated';
 
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  sessionId: string;
+  expiresIn?: number;
+}
+
 export interface AuthState {
   status: AuthStatus;
-  user: User | null;
-  roles: string[];
-  permissions: string[];
+  tokens: AuthTokens | null;
+  userId: string | null;
   tenantId: string | null;
+  roles: string[];
+  user: User | null;
+  permissions: string[];
   menus: MenuItem[];
   featureFlags: Record<string, boolean>;
 }
 
 const initialState: AuthState = {
   status: 'unauthenticated',
-  user: null,
-  roles: [],
-  permissions: [],
+  tokens: null,
+  userId: null,
   tenantId: null,
+  roles: [],
+  user: null,
+  permissions: [],
   menus: [],
   featureFlags: {},
 };
+
+export interface LoginSucceededPayload {
+  tokens: AuthTokens;
+  userId: string;
+  tenantId: string;
+  roles: string[];
+}
+
+export interface ProfileLoadedPayload {
+  user: User;
+  permissions: string[];
+  menus: MenuItem[];
+  featureFlags: Record<string, boolean>;
+}
 
 const authSlice = createSlice({
   name: 'auth',
@@ -37,13 +63,20 @@ const authSlice = createSlice({
     authenticating(state) {
       state.status = 'authenticating';
     },
-    sessionEstablished(state, action: PayloadAction<Session>) {
-      const { user, roles, permissions, tenantId, menus, featureFlags } = action.payload;
+    /** Set after a successful login (tokens + identity from the JWT claims). */
+    loginSucceeded(state, action: PayloadAction<LoginSucceededPayload>) {
+      const { tokens, userId, tenantId, roles } = action.payload;
       state.status = 'authenticated';
-      state.user = user;
-      state.roles = roles;
-      state.permissions = permissions;
+      state.tokens = tokens;
+      state.userId = userId;
       state.tenantId = tenantId;
+      state.roles = roles;
+    },
+    /** Fill the richer profile once it's fetched (e.g. GET /auth user info). */
+    profileLoaded(state, action: PayloadAction<ProfileLoadedPayload>) {
+      const { user, permissions, menus, featureFlags } = action.payload;
+      state.user = user;
+      state.permissions = permissions;
       state.menus = menus;
       state.featureFlags = featureFlags;
     },
@@ -53,7 +86,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { authenticating, sessionEstablished, loggedOut } = authSlice.actions;
+export const { authenticating, loginSucceeded, profileLoaded, loggedOut } = authSlice.actions;
 export const authReducer = authSlice.reducer;
 
 /** Selectors typed against a minimal state shape so shared code stays decoupled from app. */
@@ -63,6 +96,8 @@ export interface WithAuth {
 export const selectAuth = (s: WithAuth): AuthState => s.auth;
 export const selectIsAuthenticated = (s: WithAuth): boolean => s.auth.status === 'authenticated';
 export const selectCurrentUser = (s: WithAuth): User | null => s.auth.user;
+export const selectUserId = (s: WithAuth): string | null => s.auth.userId;
 export const selectPermissions = (s: WithAuth): string[] => s.auth.permissions;
 export const selectRoles = (s: WithAuth): string[] => s.auth.roles;
 export const selectMenus = (s: WithAuth): MenuItem[] => s.auth.menus;
+export const selectTokens = (s: WithAuth): AuthTokens | null => s.auth.tokens;

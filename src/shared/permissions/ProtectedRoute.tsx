@@ -22,7 +22,7 @@ export function ProtectedRoute({
   anyOf,
   role,
   children,
-  loginPath = '/login',
+  loginPath = '/auth/login',
   forbiddenPath = '/403',
 }: ProtectedRouteProps) {
   const { isAuthenticated, has, hasAny, hasRole } = usePermissions();

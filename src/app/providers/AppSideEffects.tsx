@@ -1,9 +1,15 @@
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '@/app/store/hooks';
 import { apiBridge, requestContext } from '@/shared/api';
-import { loggedOut } from '@/shared/auth';
-import { tokenStorage } from '@/shared/auth';
-import { selectActiveTenantId, clearTenant } from '@/shared/tenant';
+import {
+  decodeAccessToken,
+  isAccessTokenExpired,
+  loggedOut,
+  loginSucceeded,
+  selectUserId,
+  tokenStorage,
+} from '@/shared/auth';
+import { selectActiveTenantId, clearTenant, setActiveTenant } from '@/shared/tenant';
 import { selectLocale, pushToast } from '@/shared/theme';
 import { logger } from '@/shared/logger';
 import { i18n } from '@/shared/i18n';
@@ -18,7 +24,32 @@ export function AppSideEffects({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
   const tenantId = useAppSelector(selectActiveTenantId);
   const locale = useAppSelector(selectLocale);
-  const userId = useAppSelector((s) => s.auth.user?.id ?? undefined);
+  const userId = useAppSelector(selectUserId) ?? undefined;
+
+  // Rehydrate the session from storage on boot so a reload survives (tokens are client-stored).
+  useEffect(() => {
+    const accessToken = tokenStorage.getAccessToken();
+    const refreshToken = tokenStorage.getRefreshToken();
+    const sessionId = tokenStorage.getSessionId();
+    if (!accessToken || !refreshToken || !sessionId) return;
+
+    const claims = decodeAccessToken(accessToken);
+    if (!claims || isAccessTokenExpired(claims)) {
+      tokenStorage.clear();
+      return;
+    }
+    dispatch(
+      loginSucceeded({
+        tokens: { accessToken, refreshToken, sessionId },
+        userId: claims.sub,
+        tenantId: claims.tenantId,
+        roles: claims.roles,
+      }),
+    );
+    dispatch(setActiveTenant({ id: claims.tenantId, name: claims.tenantId }));
+    // Boot-only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Keep the interceptor's ambient context and the logger context current.
   useEffect(() => {
