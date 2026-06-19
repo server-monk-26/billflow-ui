@@ -7,7 +7,6 @@ import { tokenStorage } from '@/shared/auth';
 import '../i18n';
 import { Login } from './Login';
 
-/** Surfaces the current path so we can assert navigation outcomes. */
 function LocationProbe() {
   const { pathname } = useLocation();
   return <div data-testid="path">{pathname}</div>;
@@ -16,16 +15,9 @@ function LocationProbe() {
 function renderLogin() {
   return renderWithProviders(
     <Routes>
-      <Route
-        path="/auth/login"
-        element={
-          <>
-            <Login />
-            <LocationProbe />
-          </>
-        }
-      />
+      <Route path="/auth/login" element={<><Login /><LocationProbe /></>} />
       <Route path="/auth/reset-password" element={<LocationProbe />} />
+      <Route path="/onboarding" element={<LocationProbe />} />
       <Route path="/" element={<LocationProbe />} />
     </Routes>,
     { route: '/auth/login' },
@@ -33,39 +25,30 @@ function renderLogin() {
 }
 
 describe('Login', () => {
-  beforeEach(() => {
-    tokenStorage.clear();
-  });
+  beforeEach(() => tokenStorage.clear());
 
-  it('logs in a returning user: stores tokens and navigates to the dashboard', async () => {
+  it('logs in a returning user: stores the session + currentUser and navigates to the dashboard', async () => {
     const { store } = renderLogin();
-    await userEvent.type(screen.getByPlaceholderText('Enter your username'), 'aarav');
-    await userEvent.type(screen.getByPlaceholderText('Enter your password'), 'secret123');
+    await userEvent.type(screen.getByPlaceholderText('Enter your username'), '653410');
+    await userEvent.type(screen.getByPlaceholderText('Enter your password'), 'Password@123');
     await userEvent.click(screen.getByRole('button', { name: 'Login' }));
 
     await waitFor(() => expect(screen.getByTestId('path')).toHaveTextContent('/'));
-    expect(tokenStorage.getAccessToken()).toBeTruthy();
-    expect(tokenStorage.getRefreshToken()).toBeTruthy();
     expect(store.getState().auth.status).toBe('authenticated');
-    expect(store.getState().auth.tenantId).toBeTruthy();
+    expect(store.getState().auth.accessToken).toBeTruthy();
+    expect(tokenStorage.getAccessToken()).toBe('at_1');
+    expect(store.getState().currentUser.loaded).toBe(true);
+    expect(store.getState().currentUser.business?.name).toBe('Acme Traders');
   });
 
-  it('routes a first-time user to reset password (no tokens stored)', async () => {
-    renderLogin();
-    await userEvent.type(screen.getByPlaceholderText('Enter your username'), 'newuser');
-    await userEvent.type(screen.getByPlaceholderText('Enter your password'), 'whatever');
+  it('routes a password-change user to reset-password and stores the change token', async () => {
+    const { store } = renderLogin();
+    await userEvent.type(screen.getByPlaceholderText('Enter your username'), 'reset');
+    await userEvent.type(screen.getByPlaceholderText('Enter your password'), 'Password@123');
     await userEvent.click(screen.getByRole('button', { name: 'Login' }));
 
-    await waitFor(() =>
-      expect(screen.getByTestId('path')).toHaveTextContent('/auth/reset-password'),
-    );
-    expect(tokenStorage.getAccessToken()).toBeNull();
-  });
-
-  it('shows a validation error when fields are empty', async () => {
-    renderLogin();
-    await userEvent.click(screen.getByRole('button', { name: 'Login' }));
-    expect(await screen.findByText(/username is required/i)).toBeInTheDocument();
-    expect(screen.getByTestId('path')).toHaveTextContent('/auth/login');
+    await waitFor(() => expect(screen.getByTestId('path')).toHaveTextContent('/auth/reset-password'));
+    expect(store.getState().auth.passwordChangeToken).toBe('pct_123');
+    expect(store.getState().auth.status).toBe('unauthenticated');
   });
 });

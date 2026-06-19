@@ -21,9 +21,8 @@ import {
 import { useAppDispatch, useAppSelector } from '@/app/store/hooks';
 import { useThemeMode } from '@/shared/theme';
 import { loggedOut, tokenStorage } from '@/shared/auth';
-import { clearTenant } from '@/shared/tenant';
 import {
-  clearOrg,
+  clearCurrentUser,
   selectBusiness,
   selectLegalEntities,
   selectStorageUnits,
@@ -31,9 +30,9 @@ import {
   selectActiveStorageUnitId,
   setActiveLegalEntity,
   setActiveStorageUnit,
-} from '@/shared/org';
+} from '@/shared/currentUser';
 import { usePermissions } from '@/shared/permissions';
-import { useLoadCurrentUser } from '@/features/auth';
+import { useLoadCurrentUser, useLogoutMutation } from '@/features/auth';
 import { Dropdown, Loader } from '@/shared/ui';
 import { NAV, filterNav, type NavGroup } from '@/app/navigation';
 import './AppShell.css';
@@ -60,6 +59,7 @@ export function AppShell() {
   const dispatch = useAppDispatch();
   const { mode, toggle } = useThemeMode();
   const { has } = usePermissions();
+  const [logout] = useLogoutMutation();
 
   // Loads GET /me into the global store on the authenticated home page.
   useLoadCurrentUser();
@@ -78,10 +78,11 @@ export function AppShell() {
   const nav = filterNav(NAV, has);
 
   const signOut = () => {
+    // Revoke the session server-side (best effort), then clear local state.
+    void logout().unwrap().catch(() => undefined);
     tokenStorage.clear();
     dispatch(loggedOut());
-    dispatch(clearTenant());
-    dispatch(clearOrg());
+    dispatch(clearCurrentUser());
   };
 
   return (

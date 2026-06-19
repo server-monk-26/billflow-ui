@@ -123,7 +123,7 @@ export interface StorageUnitPayload {
   contactEmail: string;
   contactNo: string;
   isDefault: true;
-  legalEntities: string[];
+  legalEntityIds: string[];
 }
 
 export function buildBusinessPayload(v: OnboardingValues): BusinessPayload {
@@ -164,6 +164,6 @@ export function buildStorageUnitPayload(
     contactEmail: ctx.contactEmail,
     contactNo: ctx.contactNo,
     isDefault: true,
-    legalEntities: [legalEntityId],
+    legalEntityIds: [legalEntityId],
   };
 }

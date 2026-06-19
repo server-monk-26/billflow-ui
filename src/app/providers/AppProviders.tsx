@@ -4,6 +4,7 @@ import { I18nextProvider } from 'react-i18next';
 import { store } from '@/app/store';
 import { ThemeProvider } from '@/shared/theme';
 import { FeatureFlagProvider } from '@/shared/feature-flags';
+import { Toaster } from '@/shared/ui';
 import { i18n } from '@/shared/i18n';
 import { AppSideEffects } from './AppSideEffects';
 
@@ -18,6 +19,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <ThemeProvider>
           <FeatureFlagProvider>
             <AppSideEffects>{children}</AppSideEffects>
+            <Toaster />
           </FeatureFlagProvider>
         </ThemeProvider>
       </I18nextProvider>

@@ -12,10 +12,17 @@ export interface AppError {
   details?: Record<string, string>;
 }
 
+/** BillFlow error envelope: { success:false, errorCode, message, path, fieldErrors[], timestamp }. */
+interface FieldError {
+  field: string;
+  message: string;
+  rejectedValue?: unknown;
+}
 interface BackendErrorBody {
-  code?: string;
+  success?: boolean;
+  errorCode?: string;
   message?: string;
-  errors?: Record<string, string>;
+  fieldErrors?: FieldError[];
 }
 
 export function isAppError(value: unknown): value is AppError {
@@ -35,11 +42,14 @@ export function toAppError(error: unknown): AppError {
   if (error instanceof AxiosError) {
     const status = error.response?.status ?? 0;
     const body = error.response?.data as BackendErrorBody | undefined;
+    const details = body?.fieldErrors?.length
+      ? Object.fromEntries(body.fieldErrors.map((f) => [f.field, f.message]))
+      : undefined;
     return {
       status,
-      code: body?.code ?? (status === 0 ? 'NETWORK_ERROR' : `HTTP_${status}`),
+      code: body?.errorCode ?? (status === 0 ? 'NETWORK_ERROR' : `HTTP_${status}`),
       message: body?.message ?? error.message ?? 'Request failed',
-      ...(body?.errors ? { details: body.errors } : {}),
+      ...(details ? { details } : {}),
     };
   }
 

@@ -11,3 +11,4 @@ export { TextInput } from './TextInput';
 export type { TextInputProps } from './TextInput';
 export { Dropdown } from './Dropdown';
 export type { DropdownProps, DropdownOption } from './Dropdown';
+export { Toaster } from './Toaster';

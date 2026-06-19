@@ -15,8 +15,9 @@ export default defineConfig({
     // Proxy API in dev so the httpOnly refresh cookie is same-origin (CLAUDE.md §10).
     // Point this at your backend; VITE_API_BASE_URL stays "/api" in dev.
     proxy: {
+      // BillFlow backend (Swagger on :8081). axios baseURL is '/api', endpoints use '/v1/...'.
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:8081',
         changeOrigin: true,
       },
     },

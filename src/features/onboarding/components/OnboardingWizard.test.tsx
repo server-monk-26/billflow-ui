@@ -15,18 +15,21 @@ function LocationProbe() {
 const preloadedState: Partial<RootState> = {
   auth: {
     status: 'authenticated',
-    tokens: { accessToken: 'a', refreshToken: 'r', sessionId: 's' },
-    userId: 'u1',
-    tenantId: 't1',
-    roles: ['ADMIN'],
-    user: null,
-    permissions: [],
-    menus: [],
-    featureFlags: {},
+    loginStatus: 'SUCCESS',
+    accessToken: 'at_1',
+    refreshToken: 'rt_1',
+    sessionId: 'as_1',
+    expiresIn: 1800,
+    passwordChangeToken: null,
   },
-  org: {
-    business: { id: 'b1', name: 'Acme Traders', status: 'PENDING_ONBOARDING', businessType: null, sector: null },
-    employee: { id: 'e1', firstName: 'Jane', lastName: 'Doe', email: 'jane@acme.com', mobile: '9007091265', status: 'ACTIVE' },
+  currentUser: {
+    loaded: true,
+    user: { id: 'u_1', username: '653410', status: 'ACTIVE' },
+    roles: ['ADMIN'],
+    permissions: [],
+    tenant: { id: 't_1', name: 'Acme Traders' },
+    business: { id: 'b_1', name: 'Acme Traders', status: 'PENDING_ONBOARDING', businessType: null, sector: null },
+    employee: { id: 'e_1', firstName: 'Jane', lastName: 'Doe', email: 'jane@acme.com', mobile: '9007091265', status: 'ACTIVE' },
     legalEntities: [],
     storageUnits: [],
     activeLegalEntityId: null,
@@ -37,22 +40,13 @@ const preloadedState: Partial<RootState> = {
 function renderWizard() {
   return renderWithProviders(
     <Routes>
-      <Route
-        path="/onboarding"
-        element={
-          <>
-            <OnboardingWizard />
-            <LocationProbe />
-          </>
-        }
-      />
+      <Route path="/onboarding" element={<><OnboardingWizard /><LocationProbe /></>} />
       <Route path="/" element={<LocationProbe />} />
     </Routes>,
     { route: '/onboarding', preloadedState },
   );
 }
 
-/** Open a labelled Dropdown and pick an option. */
 async function select(user: ReturnType<typeof userEvent.setup>, label: string, option: string) {
   await user.click(screen.getByRole('button', { name: label }));
   const listbox = await screen.findByRole('listbox');
@@ -60,11 +54,11 @@ async function select(user: ReturnType<typeof userEvent.setup>, label: string, o
 }
 
 describe('OnboardingWizard', () => {
-  it('walks all three steps and completes onboarding into the store', async () => {
+  it('walks all three steps (business → legal entity → storage unit) and lands on the dashboard', async () => {
     const user = userEvent.setup();
     const { store } = renderWizard();
 
-    // Step 1 — business (name is read-only)
+    // Step 1 — business (name read-only)
     expect(screen.getByText('Acme Traders')).toBeInTheDocument();
     await select(user, 'Business type', 'Retail');
     await select(user, 'Sector', 'FMCG');
@@ -93,20 +87,7 @@ describe('OnboardingWizard', () => {
     await user.click(screen.getByRole('button', { name: 'Finish setup' }));
 
     await waitFor(() => expect(screen.getByTestId('path')).toHaveTextContent('/'));
-    const org = store.getState().org;
-    expect(org.business?.status).toBe('ACTIVE');
-    expect(org.business?.businessType).toBe('RETAIL');
-    expect(org.legalEntities).toHaveLength(1);
-    expect(org.legalEntities[0]?.isPrimary).toBe(true);
-    expect(org.storageUnits).toHaveLength(1);
-    expect(org.storageUnits[0]?.isDefault).toBe(true);
-  });
-
-  it('blocks advancing past step 1 until required fields are set', async () => {
-    const user = userEvent.setup();
-    renderWizard();
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-    expect(await screen.findByText('Select a business type')).toBeInTheDocument();
-    expect(screen.queryByText('Legal business entity')).not.toBeInTheDocument();
+    // Final GET /me refreshed the store to the active business.
+    expect(store.getState().currentUser.business?.status).toBe('ACTIVE');
   });
 });

@@ -1,64 +1,41 @@
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '@/app/store/hooks';
-import { apiBridge, requestContext } from '@/shared/api';
-import {
-  decodeAccessToken,
-  isAccessTokenExpired,
-  loggedOut,
-  loginSucceeded,
-  selectUserId,
-  tokenStorage,
-} from '@/shared/auth';
-import { selectActiveTenantId, clearTenant, setActiveTenant } from '@/shared/tenant';
-import { clearOrg } from '@/shared/org';
+import { apiBridge, requestContext, baseApi } from '@/shared/api';
+import { loggedOut, sessionRehydrated, clearSignup, tokenStorage } from '@/shared/auth';
+import { clearCurrentUser, selectCurrentUser, selectTenant } from '@/shared/currentUser';
 import { selectLocale, pushToast } from '@/shared/theme';
 import { logger } from '@/shared/logger';
 import { i18n } from '@/shared/i18n';
-import { baseApi } from '@/shared/api';
 
 /**
  * Wires cross-cutting side effects without coupling the transport to the store (CLAUDE.md
- * §9, §17). Keeps requestContext/logger/i18n in sync with state, and registers the apiBridge
- * handlers the axios interceptor calls on auth failure / error.
+ * §9, §17): rehydrates the session from token storage on reload, keeps requestContext/logger/i18n
+ * in sync, and registers the apiBridge handlers the axios interceptor calls on auth failure / error.
  */
 export function AppSideEffects({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
-  const tenantId = useAppSelector(selectActiveTenantId);
   const locale = useAppSelector(selectLocale);
-  const userId = useAppSelector(selectUserId) ?? undefined;
+  const tenantId = useAppSelector((s) => selectTenant(s)?.id);
+  const userId = useAppSelector((s) => selectCurrentUser(s)?.id);
 
-  // Rehydrate the session from storage on boot so a reload survives (tokens are client-stored).
+  // Rehydrate the authenticated session from storage on reload; /me is re-fetched by the shell.
   useEffect(() => {
     const accessToken = tokenStorage.getAccessToken();
     const refreshToken = tokenStorage.getRefreshToken();
     const sessionId = tokenStorage.getSessionId();
-    if (!accessToken || !refreshToken || !sessionId) return;
-
-    const claims = decodeAccessToken(accessToken);
-    if (!claims || isAccessTokenExpired(claims)) {
-      tokenStorage.clear();
-      return;
+    if (accessToken && refreshToken && sessionId) {
+      dispatch(sessionRehydrated({ accessToken, refreshToken, sessionId }));
     }
-    dispatch(
-      loginSucceeded({
-        tokens: { accessToken, refreshToken, sessionId },
-        userId: claims.sub,
-        tenantId: claims.tenantId,
-        roles: claims.roles,
-      }),
-    );
-    dispatch(setActiveTenant({ id: claims.tenantId, name: claims.tenantId }));
     // Boot-only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Keep the interceptor's ambient context and the logger context current.
+  // Keep the interceptor's locale and the logger context current.
   useEffect(() => {
-    requestContext.set({ tenantId, locale });
+    requestContext.set({ locale });
     logger.setContext({ ...(tenantId ? { tenantId } : {}), ...(userId ? { userId } : {}) });
-  }, [tenantId, locale, userId]);
+  }, [locale, tenantId, userId]);
 
-  // Keep i18n language in sync with the ui slice locale.
   useEffect(() => {
     if (i18n.language !== locale) void i18n.changeLanguage(locale);
   }, [locale]);
@@ -68,9 +45,9 @@ export function AppSideEffects({ children }: { children: React.ReactNode }) {
     apiBridge.registerAuthFailureHandler(() => {
       tokenStorage.clear();
       dispatch(loggedOut());
-      dispatch(clearTenant());
-      dispatch(clearOrg());
-      // Reset server cache so no tenant/user data bleeds into the next session (§11).
+      dispatch(clearCurrentUser());
+      dispatch(clearSignup());
+      // Reset server cache so no user data bleeds into the next session (§11).
       dispatch(baseApi.util.resetApiState());
     });
     apiBridge.registerErrorHandler((error) => {

@@ -18,7 +18,7 @@
   "reset": {
     "backToLogin": "Back to login",
     "title": "Reset password",
-    "subtitle": "for {{userId}}",
+    "subtitle": "Choose a new password to activate your account",
     "newPassword": "New password",
     "newPasswordPlaceholder": "Enter a new password",
     "submit": "Reset password",
@@ -51,14 +51,16 @@
       "title": "Verify your details",
       "subtitle": "Enter the 6-digit codes sent to your email and mobile"
     },
-    "fullName": "Full name",
-    "fullNamePlaceholder": "e.g. Aarav Sharma",
+    "firstName": "First name",
+    "firstNamePlaceholder": "e.g. Jane",
+    "lastName": "Last name",
+    "lastNamePlaceholder": "e.g. Doe",
+    "businessName": "Business name",
+    "businessNamePlaceholder": "e.g. Acme Traders",
     "email": "Work email",
     "emailPlaceholder": "you@company.com",
     "mobile": "Mobile number",
-    "mobilePlaceholder": "+91 98765 43210",
-    "company": "Company name",
-    "companyPlaceholder": "e.g. Acme Corp",
+    "mobilePlaceholder": "9876543210",
     "emailOtp": "Email OTP",
     "mobileOtp": "Mobile OTP",
     "otpPlaceholder": "6-digit code",
@@ -70,16 +72,17 @@
     "haveAccount": "Already have an account?",
     "login": "Log in",
     "required": {
-      "fullName": "Full name is required",
-      "company": "Company name is required"
+      "firstName": "First name is required",
+      "lastName": "Last name is required",
+      "businessName": "Business name is required"
     },
     "invalid": {
       "email": "Enter a valid email",
-      "mobile": "Enter a valid mobile number"
+      "mobile": "Enter a 10–15 digit mobile number"
     },
     "otp": {
-      "length": "Code must be 6 digits",
-      "different": "Email and mobile codes must be different"
-    }
+      "length": "Code must be 6 digits"
+    },
+    "createdToast": "Account created. Please log in with the credentials sent to you."
   }
 }

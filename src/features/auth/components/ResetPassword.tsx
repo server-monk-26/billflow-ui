@@ -2,25 +2,23 @@ import { useMemo } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Check } from 'lucide-react';
 import { Button, TextInput } from '@/shared/ui';
-import { useAppDispatch } from '@/app/store/hooks';
-import { loginSucceeded, tokenStorage } from '@/shared/auth';
-import { setActiveTenant } from '@/shared/tenant';
+import { useAppSelector } from '@/app/store/hooks';
+import { selectIsAuthenticated, selectPasswordChangeToken } from '@/shared/auth';
 import { AUTH_NS } from '../i18n';
 import { makeResetSchema, type ResetFormValues } from '../model/resetSchema';
 import { evaluatePassword, type StrengthLevel } from '../model/passwordStrength';
-import { createDevSession } from '../devAuth';
+import { useChangePasswordMutation } from '../api/authApi';
+import { useEstablishSession } from '../hooks/useEstablishSession';
 
 /**
- * Reset-password screen, rendered inside the AuthLayout container at /auth/reset-password.
- * Shows a runtime strength meter + per-rule checklist; the Reset button enables only once the
- * password satisfies every rule. Backend integration is deferred — a successful reset
- * establishes a session locally (dev stub) and lands on the dashboard.
- *
- * Reached from the first-time-user login flow with `{ passwordChangeToken, userId? }` in
- * navigation state.
+ * Reset-password screen at /auth/reset-password. Shows a runtime strength meter + per-rule
+ * checklist; Reset enables only once every rule passes. Submits POST /auth/change-password with
+ * the single-use token held in the auth store (set by the PASSWORD_CHANGE_REQUIRED login). On
+ * success the response is a full session → establish it (tokens + GET /me) and route by business
+ * status. The button is disabled while in flight (single submit).
  */
 const LEVEL_COLOR: Record<StrengthLevel, string> = {
   weak: 'var(--danger)',
@@ -31,18 +29,16 @@ const LEVEL_COLOR: Record<StrengthLevel, string> = {
 export function ResetPassword() {
   const { t } = useTranslation(AUTH_NS);
   const navigate = useNavigate();
-  const location = useLocation();
-  const dispatch = useAppDispatch();
-
-  const state = location.state as { userId?: string } | null;
-  const userId = state?.userId ?? '123456';
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
+  const passwordChangeToken = useAppSelector(selectPasswordChangeToken);
+  const [changePassword, { isLoading }] = useChangePasswordMutation();
+  const establishSession = useEstablishSession();
 
   const schema = useMemo(() => makeResetSchema(t), [t]);
   const {
     control,
     handleSubmit,
     watch,
-    formState: { isSubmitting },
   } = useForm<ResetFormValues>({
     resolver: zodResolver(schema),
     mode: 'onChange',
@@ -52,26 +48,25 @@ export function ResetPassword() {
   const password = watch('password');
   const strength = evaluatePassword(password);
 
-  const onSubmit = handleSubmit(() => {
-    // Deferred backend: establish a session client-side and go to the dashboard.
-    const session = createDevSession();
-    tokenStorage.setAccessToken(session.accessToken);
-    tokenStorage.setRefreshToken(session.refreshToken);
-    tokenStorage.setSessionId(session.sessionId);
-    dispatch(
-      loginSucceeded({
-        tokens: {
-          accessToken: session.accessToken,
-          refreshToken: session.refreshToken,
-          sessionId: session.sessionId,
-        },
-        userId: session.userId,
-        tenantId: session.tenantId,
-        roles: session.roles,
-      }),
-    );
-    dispatch(setActiveTenant({ id: session.tenantId, name: session.tenantId }));
-    void navigate('/', { replace: true });
+  // No change-password token (e.g. navigated here directly) → nothing to reset.
+  if (isAuthenticated) return <Navigate to="/" replace />;
+  if (!passwordChangeToken) return <Navigate to="/auth/login" replace />;
+
+  const onSubmit = handleSubmit(async (values) => {
+    try {
+      const result = await changePassword({
+        token: passwordChangeToken,
+        newPassword: values.password,
+      }).unwrap();
+      if (result.status !== 'SUCCESS') return;
+      const me = await establishSession(result);
+      if (!me) return; // /me failed → error toasted by the interceptor.
+      void navigate(me.business.status === 'PENDING_ONBOARDING' ? '/onboarding' : '/', {
+        replace: true,
+      });
+    } catch {
+      // Error surfaced by the global toast (§9).
+    }
   });
 
   return (
@@ -86,10 +81,7 @@ export function ResetPassword() {
           {t('reset.title')}
         </h1>
         <p style={{ margin: 0, color: 'var(--text-2)', fontSize: 'var(--fs-label)' }}>
-          {t('reset.subtitle', { userId: '' })}
-          <span className="mono" style={{ color: 'var(--text)' }}>
-            {userId}
-          </span>
+          {t('reset.subtitle')}
         </p>
       </header>
 
@@ -145,7 +137,7 @@ export function ResetPassword() {
           ))}
         </ul>
 
-        <Button type="submit" fullWidth disabled={!strength.isStrong || isSubmitting}>
+        <Button type="submit" fullWidth loading={isLoading} disabled={!strength.isStrong || isLoading}>
           {t('reset.submit')}
         </Button>
       </form>

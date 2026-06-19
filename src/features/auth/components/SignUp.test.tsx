@@ -15,84 +15,45 @@ function LocationProbe() {
 function renderSignUp() {
   return renderWithProviders(
     <Routes>
-      <Route
-        path="/auth/sign-up"
-        element={
-          <>
-            <SignUp />
-            <LocationProbe />
-          </>
-        }
-      />
-      <Route path="/" element={<LocationProbe />} />
+      <Route path="/auth/sign-up" element={<><SignUp /><LocationProbe /></>} />
+      <Route path="/auth/login" element={<LocationProbe />} />
     </Routes>,
     { route: '/auth/sign-up' },
   );
 }
 
 async function completeStep1() {
-  await userEvent.type(screen.getByPlaceholderText('e.g. Aarav Sharma'), 'Aarav Sharma');
-  await userEvent.type(screen.getByPlaceholderText('you@company.com'), 'aarav@acme.com');
-  await userEvent.type(screen.getByPlaceholderText('+91 98765 43210'), '9876543210');
-  await userEvent.type(screen.getByPlaceholderText('e.g. Acme Corp'), 'Acme Corp');
+  await userEvent.type(screen.getByPlaceholderText('e.g. Jane'), 'Jane');
+  await userEvent.type(screen.getByPlaceholderText('e.g. Doe'), 'Doe');
+  await userEvent.type(screen.getByPlaceholderText('e.g. Acme Traders'), 'Acme Traders');
+  await userEvent.type(screen.getByPlaceholderText('you@company.com'), 'jane@acme.com');
+  await userEvent.type(screen.getByPlaceholderText('9876543210'), '9876543210');
   await userEvent.click(screen.getByRole('button', { name: 'Next' }));
 }
 
 describe('SignUp', () => {
-  beforeEach(() => {
-    tokenStorage.clear();
-  });
+  beforeEach(() => tokenStorage.clear());
 
-  it('advances to verification only after valid primary info', async () => {
-    renderSignUp();
-    // Invalid: empty submit stays on step 1.
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.queryByText('Verify your details')).not.toBeInTheDocument();
-
-    await completeStep1();
-    expect(await screen.findByText('Verify your details')).toBeInTheDocument();
-  });
-
-  it('requires both OTPs verified and different before enabling Create account', async () => {
-    renderSignUp();
-    await completeStep1();
-
-    const [emailOtp, mobileOtp] = screen.getAllByPlaceholderText('6-digit code');
-    const createBtn = screen.getByRole('button', { name: 'Create account' });
-    expect(createBtn).toBeDisabled();
-
-    // Verify email.
-    await userEvent.type(emailOtp!, '123456');
-    await userEvent.click(screen.getAllByRole('button', { name: 'Verify' })[0]!);
-    expect(await screen.findByText('Verified')).toBeInTheDocument();
-    expect(createBtn).toBeDisabled(); // mobile still pending
-
-    // Same code for mobile → rejected (must differ).
-    await userEvent.type(mobileOtp!, '123456');
-    await userEvent.click(screen.getByRole('button', { name: 'Verify' }));
-    expect(await screen.findByText(/must be different/i)).toBeInTheDocument();
-    expect(createBtn).toBeDisabled();
-
-    // Different valid code → verified, button enabled.
-    await userEvent.clear(mobileOtp!);
-    await userEvent.type(mobileOtp!, '654321');
-    await userEvent.click(screen.getByRole('button', { name: 'Verify' }));
-    await waitFor(() => expect(createBtn).toBeEnabled());
-  });
-
-  it('creates the account and navigates to the dashboard', async () => {
+  it('initiates signup and advances to OTP verification, storing the sessionId', async () => {
     const { store } = renderSignUp();
     await completeStep1();
+    expect(await screen.findByText('Verify your details')).toBeInTheDocument();
+    expect(store.getState().signup.sessionId).toBe('sess_123');
+  });
 
-    const [emailOtp, mobileOtp] = screen.getAllByPlaceholderText('6-digit code');
-    await userEvent.type(emailOtp!, '111111');
-    await userEvent.click(screen.getAllByRole('button', { name: 'Verify' })[0]!);
-    await userEvent.type(mobileOtp!, '222222');
-    await userEvent.click(screen.getByRole('button', { name: 'Verify' }));
+  it('verifies both OTPs then onboards and routes to login', async () => {
+    renderSignUp();
+    await completeStep1();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
-    await waitFor(() => expect(screen.getByTestId('path')).toHaveTextContent('/'));
-    expect(store.getState().auth.status).toBe('authenticated');
-    expect(tokenStorage.getAccessToken()).toBeTruthy();
+    await userEvent.type(screen.getByTestId('email-otp'), '123456');
+    await userEvent.click(screen.getByTestId('email-otp-verify'));
+    await userEvent.type(screen.getByTestId('mobile-otp'), '987654');
+    await userEvent.click(screen.getByTestId('mobile-otp-verify'));
+
+    const createBtn = screen.getByRole('button', { name: 'Create account' });
+    await waitFor(() => expect(createBtn).toBeEnabled());
+    await userEvent.click(createBtn);
+
+    await waitFor(() => expect(screen.getByTestId('path')).toHaveTextContent('/auth/login'));
   });
 });

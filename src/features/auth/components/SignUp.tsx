@@ -5,21 +5,24 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Check } from 'lucide-react';
 import { Button, TextInput } from '@/shared/ui';
-import { useAppDispatch } from '@/app/store/hooks';
-import { loginSucceeded, tokenStorage } from '@/shared/auth';
-import { setActiveTenant } from '@/shared/tenant';
+import { isAppError } from '@/shared/api';
+import { useAppDispatch, useAppSelector } from '@/app/store/hooks';
+import { signupInitiated, clearSignup, selectSignupSessionId } from '@/shared/auth';
+import { pushToast } from '@/shared/theme';
 import { AUTH_NS } from '../i18n';
 import { makeSignUpSchema, type SignUpFormValues } from '../model/signUpSchema';
-import { createDevSession } from '../devAuth';
+import {
+  useSignupInitiateMutation,
+  useVerifyOtpMutation,
+  useOnboardMutation,
+} from '../api/authApi';
 
 /**
- * Two-step sign-up wizard, rendered inside the AuthLayout container at /auth/sign-up.
- *
- * Step 1 — capture primary information (RHF + Zod). On Next, the values would be sent to the
- *          backend to create the account (API integration deferred); for now we just advance.
- * Step 2 — verify a 6-digit email OTP and mobile OTP independently. Both are mandatory and must
- *          differ from each other; the Create-account button enables only once both are verified.
- *          On submit, a session is established locally (dev stub) and we land on the dashboard.
+ * Two-step sign-up wizard at /auth/sign-up (CLAUDE.md §13).
+ * Step 1 — POST /auth/signup/initiate (captures the sessionId into the signup store).
+ * Step 2 — verify email + mobile OTPs independently (POST /auth/verify-otp?channel=EMAIL|SMS);
+ *          once both are verified, POST /auth/onboard creates the tenant/business/user and
+ *          routes to /auth/login. Buttons disable while their request is in flight (single call).
  */
 const OTP_LENGTH = 6;
 type Step = 1 | 2;
@@ -28,69 +31,75 @@ export function SignUp() {
   const { t } = useTranslation(AUTH_NS);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const sessionId = useAppSelector(selectSignupSessionId);
 
   const [step, setStep] = useState<Step>(1);
+  const [signupInitiate, { isLoading: initiating }] = useSignupInitiateMutation();
+  const [verifyOtp] = useVerifyOtpMutation();
+  const [onboard, { isLoading: onboarding }] = useOnboardMutation();
 
-  // ---- Step 1: primary information ----
   const schema = useMemo(() => makeSignUpSchema(t), [t]);
-  const { control, handleSubmit } = useForm<SignUpFormValues>({
+  const { control, handleSubmit, setError } = useForm<SignUpFormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { fullName: '', email: '', mobile: '', company: '' },
+    defaultValues: { firstName: '', lastName: '', businessName: '', email: '', mobileNumber: '' },
   });
 
-  const goNext = handleSubmit((_values) => {
-    // The captured values would be POSTed to create the account here (deferred). Advance to OTP.
-    setStep(2);
-  });
-
-  // ---- Step 2: OTP verification ----
+  // ---- Step 2 OTP state ----
   const [emailOtp, setEmailOtp] = useState('');
   const [mobileOtp, setMobileOtp] = useState('');
   const [emailVerified, setEmailVerified] = useState(false);
   const [mobileVerified, setMobileVerified] = useState(false);
-  const [otpError, setOtpError] = useState<{ email?: string; mobile?: string }>({});
-
+  const [verifying, setVerifying] = useState<{ email: boolean; mobile: boolean }>({ email: false, mobile: false });
   const onlyDigits = (v: string) => v.replace(/\D/g, '').slice(0, OTP_LENGTH);
 
-  const verify = (channel: 'email' | 'mobile') => {
-    const value = channel === 'email' ? emailOtp : mobileOtp;
-    const other = channel === 'email' ? mobileOtp : emailOtp;
-    if (value.length !== OTP_LENGTH) {
-      setOtpError((e) => ({ ...e, [channel]: t('signUp.otp.length') }));
-      return;
+  const goNext = handleSubmit(async (values) => {
+    try {
+      const res = await signupInitiate(values).unwrap();
+      dispatch(signupInitiated({ sessionId: res.sessionId, email: values.email, mobile: values.mobileNumber }));
+      setStep(2);
+    } catch (err) {
+      if (isAppError(err) && err.details) {
+        const fields: (keyof SignUpFormValues)[] = ['firstName', 'lastName', 'businessName', 'email', 'mobileNumber'];
+        for (const [field, message] of Object.entries(err.details)) {
+          if (fields.includes(field as keyof SignUpFormValues)) {
+            setError(field as keyof SignUpFormValues, { message });
+          }
+        }
+      }
     }
-    // Both codes are mandatory and must be different from each other.
-    if (other.length > 0 && value === other) {
-      setOtpError((e) => ({ ...e, [channel]: t('signUp.otp.different') }));
-      return;
+  });
+
+  const verify = async (channel: 'EMAIL' | 'SMS') => {
+    if (!sessionId) return;
+    const otp = channel === 'EMAIL' ? emailOtp : mobileOtp;
+    if (otp.length !== OTP_LENGTH) return;
+    const key = channel === 'EMAIL' ? 'email' : 'mobile';
+    setVerifying((v) => ({ ...v, [key]: true }));
+    try {
+      const res = await verifyOtp({ channel, sessionId, otp }).unwrap();
+      if (res.verified) {
+        if (channel === 'EMAIL') setEmailVerified(true);
+        else setMobileVerified(true);
+      }
+    } catch {
+      // Error toasted by the interceptor.
+    } finally {
+      setVerifying((v) => ({ ...v, [key]: false }));
     }
-    setOtpError((e) => ({ ...e, [channel]: undefined }));
-    if (channel === 'email') setEmailVerified(true);
-    else setMobileVerified(true);
   };
 
   const bothVerified = emailVerified && mobileVerified;
 
-  const createAccount = () => {
-    if (!bothVerified) return;
-    const session = createDevSession();
-    tokenStorage.setAccessToken(session.accessToken);
-    tokenStorage.setRefreshToken(session.refreshToken);
-    tokenStorage.setSessionId(session.sessionId);
-    dispatch(
-      loginSucceeded({
-        tokens: {
-          accessToken: session.accessToken,
-          refreshToken: session.refreshToken,
-          sessionId: session.sessionId,
-        },
-        userId: session.userId,
-        tenantId: session.tenantId,
-        roles: session.roles,
-      }),
-    );
-    dispatch(setActiveTenant({ id: session.tenantId, name: session.tenantId }));
-    void navigate('/', { replace: true });
+  const createAccount = async () => {
+    if (!bothVerified || !sessionId) return;
+    try {
+      await onboard({ sessionId }).unwrap();
+      dispatch(clearSignup());
+      dispatch(pushToast({ variant: 'success', message: t('signUp.createdToast') }));
+      void navigate('/auth/login', { replace: true });
+    } catch {
+      // Error toasted by the interceptor.
+    }
   };
 
   return (
@@ -107,20 +116,18 @@ export function SignUp() {
         </button>
       )}
 
-      <Stepper
-        step={step}
-        labels={[t('signUp.steps.details'), t('signUp.steps.verify')]}
-      />
+      <Stepper step={step} labels={[t('signUp.steps.details'), t('signUp.steps.verify')]} />
 
       {step === 1 ? (
         <>
           <Header title={t('signUp.step1.title')} subtitle={t('signUp.step1.subtitle')} />
           <form onSubmit={(e) => void goNext(e)} noValidate style={formStyle}>
-            <Field control={control} name="fullName" label={t('signUp.fullName')} placeholder={t('signUp.fullNamePlaceholder')} autoComplete="name" />
+            <Field control={control} name="firstName" label={t('signUp.firstName')} placeholder={t('signUp.firstNamePlaceholder')} autoComplete="given-name" />
+            <Field control={control} name="lastName" label={t('signUp.lastName')} placeholder={t('signUp.lastNamePlaceholder')} autoComplete="family-name" />
+            <Field control={control} name="businessName" label={t('signUp.businessName')} placeholder={t('signUp.businessNamePlaceholder')} autoComplete="organization" />
             <Field control={control} name="email" label={t('signUp.email')} placeholder={t('signUp.emailPlaceholder')} type="email" autoComplete="email" />
-            <Field control={control} name="mobile" label={t('signUp.mobile')} placeholder={t('signUp.mobilePlaceholder')} inputMode="tel" autoComplete="tel" />
-            <Field control={control} name="company" label={t('signUp.company')} placeholder={t('signUp.companyPlaceholder')} autoComplete="organization" />
-            <Button type="submit" fullWidth>
+            <Field control={control} name="mobileNumber" label={t('signUp.mobile')} placeholder={t('signUp.mobilePlaceholder')} inputMode="tel" autoComplete="tel" />
+            <Button type="submit" fullWidth loading={initiating}>
               {t('signUp.next')}
             </Button>
           </form>
@@ -136,8 +143,8 @@ export function SignUp() {
               value={emailOtp}
               onChange={(v) => setEmailOtp(onlyDigits(v))}
               verified={emailVerified}
-              {...(otpError.email ? { error: otpError.email } : {})}
-              onVerify={() => verify('email')}
+              loading={verifying.email}
+              onVerify={() => void verify('EMAIL')}
               verifyLabel={t('signUp.verify')}
               verifiedLabel={t('signUp.verified')}
               otpLength={OTP_LENGTH}
@@ -149,13 +156,13 @@ export function SignUp() {
               value={mobileOtp}
               onChange={(v) => setMobileOtp(onlyDigits(v))}
               verified={mobileVerified}
-              {...(otpError.mobile ? { error: otpError.mobile } : {})}
-              onVerify={() => verify('mobile')}
+              loading={verifying.mobile}
+              onVerify={() => void verify('SMS')}
               verifyLabel={t('signUp.verify')}
               verifiedLabel={t('signUp.verified')}
               otpLength={OTP_LENGTH}
             />
-            <Button type="button" fullWidth disabled={!bothVerified} onClick={createAccount}>
+            <Button type="button" fullWidth loading={onboarding} disabled={!bothVerified} onClick={() => void createAccount()}>
               {t('signUp.submit')}
             </Button>
           </div>
@@ -224,16 +231,16 @@ interface OtpRowProps {
   value: string;
   onChange: (v: string) => void;
   verified: boolean;
-  error?: string;
+  loading: boolean;
   onVerify: () => void;
   verifyLabel: string;
   verifiedLabel: string;
   otpLength: number;
 }
 
-function OtpRow({ testId, label, placeholder, value, onChange, verified, error, onVerify, verifyLabel, verifiedLabel, otpLength }: OtpRowProps) {
+function OtpRow({ testId, label, placeholder, value, onChange, verified, loading, onVerify, verifyLabel, verifiedLabel, otpLength }: OtpRowProps) {
   return (
-    <div style={{ display: 'flex', alignItems: error ? 'center' : 'flex-end', gap: 'var(--sp-2)' }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--sp-2)' }}>
       <div style={{ flex: 1 }}>
         <TextInput
           label={label}
@@ -244,7 +251,6 @@ function OtpRow({ testId, label, placeholder, value, onChange, verified, error, 
           maxLength={otpLength}
           disabled={verified}
           data-testid={testId}
-          {...(error ? { error } : {})}
         />
       </div>
       {verified ? (
@@ -264,7 +270,7 @@ function OtpRow({ testId, label, placeholder, value, onChange, verified, error, 
           {verifiedLabel}
         </span>
       ) : (
-        <Button variant="secondary" onClick={onVerify} disabled={value.length !== otpLength} data-testid={`${testId}-verify`}>
+        <Button variant="secondary" onClick={onVerify} loading={loading} disabled={value.length !== otpLength} data-testid={`${testId}-verify`}>
           {verifyLabel}
         </Button>
       )}
@@ -272,7 +278,6 @@ function OtpRow({ testId, label, placeholder, value, onChange, verified, error, 
   );
 }
 
-// Typed wrapper around Controller + TextInput to keep the step-1 markup readable.
 function Field({
   control,
   name,
@@ -311,12 +316,7 @@ function Field({
   );
 }
 
-const formStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 'var(--sp-4)',
-};
-
+const formStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' };
 const backLinkStyle: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',

@@ -44,7 +44,7 @@ describe('onboarding payload builders', () => {
     expect(p.stateCode).toBe('27');
     expect(p.state).toBe('Maharashtra');
     expect(p.isDefault).toBe(true);
-    expect(p.legalEntities).toEqual(['le-123']);
+    expect(p.legalEntityIds).toEqual(['le-123']);
     expect(p.contactNo).toBe('9007091265');
   });
 });

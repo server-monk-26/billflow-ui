@@ -1,14 +1,11 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { useSelector } from 'react-redux';
-import { selectAuth, type WithAuth } from '@/shared/auth';
-import { selectActiveTenant, type WithTenant } from '@/shared/tenant';
 
 /**
  * Feature flags (CLAUDE.md §16.4). Effective value resolves by precedence:
- *   static defaults  →  server (auth payload)  →  tenant override  →  local dev override
+ *   static defaults  →  local dev override
  *
- * The provider interface is deliberately minimal so a SaaS provider (LaunchDarkly, Unleash)
- * can be dropped in later without touching `useFeatureFlag`/`<Feature>` call sites.
+ * The provider interface is deliberately minimal so a SaaS provider (LaunchDarkly, Unleash) or
+ * server-driven flags can be layered in later without touching `useFeatureFlag`/`<Feature>` sites.
  */
 
 /** Build-time defaults. Add keys here; server/tenant can override at runtime. */
@@ -36,21 +33,10 @@ interface FeatureFlagContextValue {
 const FeatureFlagContext = createContext<FeatureFlagContextValue | null>(null);
 
 export function FeatureFlagProvider({ children }: { children: ReactNode }) {
-  const auth = useSelector((s: WithAuth) => selectAuth(s));
-  const tenant = useSelector((s: WithTenant) => selectActiveTenant(s));
-
   const value = useMemo<FeatureFlagContextValue>(() => {
-    const flags: Record<string, boolean> = {
-      ...FLAG_DEFAULTS,
-      ...auth.featureFlags,
-      ...(tenant?.featureFlagOverrides ?? {}),
-      ...loadDevOverrides(),
-    };
-    return {
-      flags,
-      isEnabled: (key) => flags[key] ?? false,
-    };
-  }, [auth.featureFlags, tenant?.featureFlagOverrides]);
+    const flags: Record<string, boolean> = { ...FLAG_DEFAULTS, ...loadDevOverrides() };
+    return { flags, isEnabled: (key) => flags[key] ?? false };
+  }, []);
 
   return <FeatureFlagContext.Provider value={value}>{children}</FeatureFlagContext.Provider>;
 }

@@ -5,18 +5,19 @@ import { useTranslation } from 'react-i18next';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { Button, Dropdown, Loader, TextInput, type DropdownOption } from '@/shared/ui';
-import { STATE_OPTIONS, uuid } from '@/shared/lib';
-import { logger } from '@/shared/logger';
+import { STATE_OPTIONS } from '@/shared/lib';
 import { useAppDispatch, useAppSelector } from '@/app/store/hooks';
 import { selectIsAuthenticated } from '@/shared/auth';
 import {
   selectBusiness,
   selectEmployee,
+  selectCurrentUserLoaded,
   setBusinessDetails,
   addLegalEntity,
   addStorageUnit,
-} from '@/shared/org';
-import { useLoadCurrentUser } from '@/features/auth';
+  currentUserLoaded,
+} from '@/shared/currentUser';
+import { useLoadCurrentUser, useLazyGetMeQuery } from '@/features/auth';
 import { ONBOARDING_NS } from '../i18n';
 import { BUSINESS_TYPES, SECTORS, ENTITY_TYPES, GST_TYPES, STORAGE_TYPES } from '../model/options';
 import {
@@ -28,14 +29,20 @@ import {
   buildStorageUnitPayload,
   type OnboardingValues,
 } from '../model/onboardingSchema';
+import {
+  useUpdateBusinessDetailsMutation,
+  useCreateLegalEntityMutation,
+  useCreateStorageUnitMutation,
+} from '../api/onboardingApi';
 
 /**
- * Onboarding wizard at /onboarding (CLAUDE.md §13, Design Spec §10 — form/wizard pattern).
- * Opens after login + /me when the business is PENDING_ONBOARDING. Three steps capture the
- * business details, the primary legal entity, and the default storage unit. Hidden fields
- * (stateCode from the selected state; contact email/no from the store; isPrimary/isDefault;
- * the storage unit's legalEntities link) are assembled by the payload builders. The create/
- * update APIs aren't ready — on finish we update the global store and head to the dashboard.
+ * Onboarding wizard at /onboarding (CLAUDE.md §13, Design Spec §10). Opens when the business is
+ * PENDING_ONBOARDING. Each step calls one API on advance:
+ *   1. PUT  /business/details   → updates the business (activates it)
+ *   2. POST /legal-entities     → creates the primary legal entity (id reused in step 3)
+ *   3. POST /storage-units      → creates the default storage unit linked to the legal entity
+ * After step 3 we re-fetch GET /me and route by business status (ACTIVE → home). The currentUser
+ * store is updated after each step. Step buttons disable while their request is in flight.
  */
 type Step = 0 | 1 | 2;
 
@@ -46,74 +53,99 @@ export function OnboardingWizard() {
 
   useLoadCurrentUser();
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
+  const loaded = useAppSelector(selectCurrentUserLoaded);
   const business = useAppSelector(selectBusiness);
   const employee = useAppSelector(selectEmployee);
 
   const [step, setStep] = useState<Step>(0);
+  const [legalEntityId, setLegalEntityId] = useState<string | null>(null);
+
+  const [updateBusiness, { isLoading: savingBusiness }] = useUpdateBusinessDetailsMutation();
+  const [createLegalEntity, { isLoading: savingLegalEntity }] = useCreateLegalEntityMutation();
+  const [createStorageUnit, { isLoading: savingStorageUnit }] = useCreateStorageUnitMutation();
+  const [triggerMe, { isFetching: refetchingMe }] = useLazyGetMeQuery();
 
   const schema = useMemo(() => makeOnboardingSchema(t), [t]);
-  const { control, handleSubmit, trigger, formState } = useForm<OnboardingValues>({
+  const { control, getValues, trigger } = useForm<OnboardingValues>({
     resolver: zodResolver(schema),
     mode: 'onTouched',
     defaultValues: onboardingDefaults,
   });
 
   if (!isAuthenticated) return <Navigate to="/auth/login" replace />;
-  // Wait for /me to populate the store.
-  if (!business) return <Loader variant="page" />;
-  // Already onboarded — no need for the wizard.
+  if (!loaded || !business) return <Loader variant="page" />;
   if (business.status !== 'PENDING_ONBOARDING') return <Navigate to="/" replace />;
 
-  const goNext = async () => {
-    const valid = await trigger([...STEP_FIELDS[step]!]);
-    if (valid) setStep((s) => (Math.min(s + 1, 2) as Step));
+  const ctx = { contactEmail: employee?.email ?? '', contactNo: employee?.mobile ?? '' };
+
+  const submitBusiness = async () => {
+    if (!(await trigger([...STEP_FIELDS[0]!]))) return;
+    try {
+      const res = await updateBusiness(buildBusinessPayload(getValues())).unwrap();
+      // Keep status PENDING_ONBOARDING locally so the wizard's "already onboarded" guard
+      // doesn't redirect mid-flow; the final GET /me sets the authoritative (ACTIVE) status.
+      dispatch(setBusinessDetails({ businessType: res.businessType, sector: res.sector }));
+      setStep(1);
+    } catch {
+      /* toasted by interceptor */
+    }
   };
 
-  const finish = handleSubmit((values) => {
-    const ctx = { contactEmail: employee?.email ?? '', contactNo: employee?.mobile ?? '' };
-    const legalEntityId = uuid();
-    const storageUnitId = uuid();
+  const submitLegalEntity = async () => {
+    if (!(await trigger([...STEP_FIELDS[1]!]))) return;
+    try {
+      const res = await createLegalEntity(buildLegalEntityPayload(getValues(), ctx)).unwrap();
+      setLegalEntityId(res.id);
+      dispatch(
+        addLegalEntity({
+          id: res.id,
+          legalName: res.legalName,
+          ...(res.gstin ? { gstin: res.gstin } : {}),
+          ...(res.city ? { city: res.city } : {}),
+          ...(res.state ? { state: res.state } : {}),
+          ...(res.isPrimary !== undefined ? { isPrimary: res.isPrimary } : {}),
+          ...(res.status ? { status: res.status } : {}),
+        }),
+      );
+      setStep(2);
+    } catch {
+      /* toasted by interceptor */
+    }
+  };
 
-    // APIs not ready — assemble the payloads (API-shaped) and update the store instead.
-    const businessPayload = buildBusinessPayload(values);
-    const legalEntityPayload = buildLegalEntityPayload(values, ctx);
-    const storageUnitPayload = buildStorageUnitPayload(values, ctx, legalEntityId);
-    logger.info('Onboarding submitted (stub — APIs pending)', {
-      businessPayload,
-      legalEntityPayload,
-      storageUnitPayload,
-    });
-
-    dispatch(setBusinessDetails({ ...businessPayload, status: 'ACTIVE' }));
-    dispatch(
-      addLegalEntity({
-        id: legalEntityId,
-        legalName: legalEntityPayload.legalName,
-        gstin: legalEntityPayload.gstin,
-        city: legalEntityPayload.city,
-        state: legalEntityPayload.state,
-        isPrimary: true,
-        status: 'ACTIVE',
-      }),
-    );
-    dispatch(
-      addStorageUnit({
-        id: storageUnitId,
-        name: storageUnitPayload.name,
-        type: storageUnitPayload.type,
-        city: storageUnitPayload.city,
-        isDefault: true,
-        status: 'ACTIVE',
-      }),
-    );
-    void navigate('/', { replace: true });
-  });
+  const submitStorageUnit = async () => {
+    if (!(await trigger([...STEP_FIELDS[2]!]))) return;
+    if (!legalEntityId) return;
+    try {
+      const res = await createStorageUnit(
+        buildStorageUnitPayload(getValues(), ctx, legalEntityId),
+      ).unwrap();
+      dispatch(
+        addStorageUnit({
+          id: res.id,
+          name: res.name,
+          ...(res.type ? { type: res.type } : {}),
+          ...(res.city ? { city: res.city } : {}),
+          ...(res.isDefault !== undefined ? { isDefault: res.isDefault } : {}),
+          ...(res.status ? { status: res.status } : {}),
+        }),
+      );
+      // Refresh the authoritative profile, then route by business status.
+      const me = await triggerMe().unwrap();
+      dispatch(currentUserLoaded(me));
+      void navigate('/', { replace: true });
+    } catch {
+      /* toasted by interceptor */
+    }
+  };
 
   const stepMeta = [
-    { key: 'business', title: t('business.title'), subtitle: t('business.subtitle') },
-    { key: 'legalEntity', title: t('legalEntity.title'), subtitle: t('legalEntity.subtitle') },
-    { key: 'storageUnit', title: t('storageUnit.title'), subtitle: t('storageUnit.subtitle') },
+    { title: t('business.title'), subtitle: t('business.subtitle') },
+    { title: t('legalEntity.title'), subtitle: t('legalEntity.subtitle') },
+    { title: t('storageUnit.title'), subtitle: t('storageUnit.subtitle') },
   ] as const;
+
+  const busy = savingBusiness || savingLegalEntity || savingStorageUnit || refetchingMe;
 
   return (
     <div style={shellStyle}>
@@ -127,20 +159,16 @@ export function OnboardingWizard() {
           </p>
         </header>
 
-        <Stepper
-          step={step}
-          labels={[t('steps.business'), t('steps.legalEntity'), t('steps.storageUnit')]}
-        />
+        <Stepper step={step} labels={[t('steps.business'), t('steps.legalEntity'), t('steps.storageUnit')]} />
 
         <header style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-1)' }}>
           <h2 style={{ fontSize: 'var(--fs-h2)', fontWeight: 600, margin: 0 }}>{stepMeta[step].title}</h2>
           <p style={{ margin: 0, color: 'var(--text-3)', fontSize: 'var(--fs-label)' }}>{stepMeta[step].subtitle}</p>
         </header>
 
-        <form onSubmit={(e) => void finish(e)} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
           {step === 0 && (
             <>
-              {/* Business name exists from signup and cannot be changed. */}
               <ReadOnlyField label={t('businessName')} value={business.name} />
               <SelectField control={control} name="businessType" label={t('businessType')} options={BUSINESS_TYPES} placeholder={t('select')} />
               <SelectField control={control} name="sector" label={t('sector')} options={SECTORS} placeholder={t('select')} />
@@ -177,20 +205,26 @@ export function OnboardingWizard() {
           )}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--sp-2)', marginTop: 'var(--sp-2)' }}>
-            <Button variant="ghost" onClick={() => setStep((s) => (Math.max(s - 1, 0) as Step))} disabled={step === 0}>
+            <Button variant="ghost" onClick={() => setStep((s) => (Math.max(s - 1, 0) as Step))} disabled={step === 0 || busy}>
               {t('back')}
             </Button>
-            {step < 2 ? (
-              <Button type="button" onClick={() => void goNext()}>
+            {step === 0 && (
+              <Button type="button" loading={savingBusiness} onClick={() => void submitBusiness()}>
                 {t('next')}
               </Button>
-            ) : (
-              <Button type="submit" loading={formState.isSubmitting}>
+            )}
+            {step === 1 && (
+              <Button type="button" loading={savingLegalEntity} onClick={() => void submitLegalEntity()}>
+                {t('next')}
+              </Button>
+            )}
+            {step === 2 && (
+              <Button type="button" loading={savingStorageUnit || refetchingMe} onClick={() => void submitStorageUnit()}>
                 {t('finish')}
               </Button>
             )}
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

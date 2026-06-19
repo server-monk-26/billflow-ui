@@ -1,6 +1,5 @@
 import type { Middleware, UnknownAction } from '@reduxjs/toolkit';
-import { selectUserId, type WithAuth } from '@/shared/auth';
-import { selectActiveTenantId, type WithTenant } from '@/shared/tenant';
+import { selectCurrentUser, selectTenant, type WithCurrentUser } from '@/shared/currentUser';
 import { audit } from './audit';
 
 /**
@@ -9,9 +8,9 @@ import { audit } from './audit';
  * captures mutating HTTP requests; this covers meaningful client-side state transitions.
  */
 const AUDITED_ACTIONS = new Set<string>([
-  'auth/loginSucceeded',
+  'auth/sessionStored',
   'auth/loggedOut',
-  'tenant/setActiveTenant',
+  'currentUser/currentUserLoaded',
 ]);
 
 export const auditMiddleware: Middleware = (store) => (next) => (action) => {
@@ -19,9 +18,9 @@ export const auditMiddleware: Middleware = (store) => (next) => (action) => {
   const type = (action as UnknownAction).type;
 
   if (typeof type === 'string' && AUDITED_ACTIONS.has(type)) {
-    const state = store.getState() as WithAuth & WithTenant;
-    const actor = selectUserId(state);
-    const tenant = selectActiveTenantId(state);
+    const state = store.getState() as WithCurrentUser;
+    const actor = selectCurrentUser(state)?.id;
+    const tenant = selectTenant(state)?.id;
     audit.record({
       action: type,
       ...(actor ? { actor } : {}),

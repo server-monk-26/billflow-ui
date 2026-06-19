@@ -1,11 +1,9 @@
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { setupListeners } from '@reduxjs/toolkit/query';
 import { baseApi } from '@/shared/api';
-import { authReducer } from '@/shared/auth';
-import { tenantReducer } from '@/shared/tenant';
-import { orgReducer } from '@/shared/org';
+import { authReducer, signupReducer } from '@/shared/auth';
+import { currentUserReducer } from '@/shared/currentUser';
 import { uiReducer, persistUi } from '@/shared/theme';
-import { auditMiddleware } from '@/shared/audit';
 
 /**
  * Composition root for global state (CLAUDE.md §8). One store; server state lives in the
@@ -14,8 +12,8 @@ import { auditMiddleware } from '@/shared/audit';
 const rootReducer = combineReducers({
   ui: uiReducer,
   auth: authReducer,
-  tenant: tenantReducer,
-  org: orgReducer,
+  signup: signupReducer,
+  currentUser: currentUserReducer,
   [baseApi.reducerPath]: baseApi.reducer,
 });
 
@@ -25,7 +23,7 @@ export type RootState = ReturnType<typeof rootReducer>;
 export function makeStore(preloadedState?: Partial<RootState>) {
   return configureStore({
     reducer: rootReducer,
-    middleware: (getDefault) => getDefault().concat(baseApi.middleware, auditMiddleware),
+    middleware: (getDefault) => getDefault().concat(baseApi.middleware),
     ...(preloadedState ? { preloadedState: preloadedState as RootState } : {}),
   });
 }

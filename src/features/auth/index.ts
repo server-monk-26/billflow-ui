@@ -5,6 +5,7 @@ export { Login } from './components/Login';
 export { ResetPassword } from './components/ResetPassword';
 export { SignUp } from './components/SignUp';
 export { useLoadCurrentUser } from './hooks/useLoadCurrentUser';
+export { useLazyGetMeQuery, useLogoutMutation } from './api/authApi';
 export { meSchema } from './model/meSchema';
 export type { Me } from './model/meSchema';
 export { loginFormSchema, makeLoginSchema } from './model/loginSchema';
