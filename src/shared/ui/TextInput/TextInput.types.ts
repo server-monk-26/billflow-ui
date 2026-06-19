@@ -21,6 +21,8 @@ export interface TextInputProps {
   fullWidth?: boolean;
   placeholder?: string;
   autoComplete?: string;
+  maxLength?: number;
+  inputMode?: 'text' | 'numeric' | 'tel' | 'email' | 'search' | 'url' | 'none' | 'decimal';
   startAdornment?: ReactNode;
   endAdornment?: ReactNode;
   /** RHF Controller passes its ref here. */

@@ -36,5 +36,50 @@
       "number": "One number",
       "special": "One special character"
     }
+  },
+  "signUp": {
+    "backToLogin": "Back to login",
+    "steps": {
+      "details": "Your details",
+      "verify": "Verify"
+    },
+    "step1": {
+      "title": "Create your account",
+      "subtitle": "Tell us about you and your organization"
+    },
+    "step2": {
+      "title": "Verify your details",
+      "subtitle": "Enter the 6-digit codes sent to your email and mobile"
+    },
+    "fullName": "Full name",
+    "fullNamePlaceholder": "e.g. Aarav Sharma",
+    "email": "Work email",
+    "emailPlaceholder": "you@company.com",
+    "mobile": "Mobile number",
+    "mobilePlaceholder": "+91 98765 43210",
+    "company": "Company name",
+    "companyPlaceholder": "e.g. Acme Corp",
+    "emailOtp": "Email OTP",
+    "mobileOtp": "Mobile OTP",
+    "otpPlaceholder": "6-digit code",
+    "verify": "Verify",
+    "verified": "Verified",
+    "next": "Next",
+    "back": "Back",
+    "submit": "Create account",
+    "haveAccount": "Already have an account?",
+    "login": "Log in",
+    "required": {
+      "fullName": "Full name is required",
+      "company": "Company name is required"
+    },
+    "invalid": {
+      "email": "Enter a valid email",
+      "mobile": "Enter a valid mobile number"
+    },
+    "otp": {
+      "length": "Code must be 6 digits",
+      "different": "Email and mobile codes must be different"
+    }
   }
 }

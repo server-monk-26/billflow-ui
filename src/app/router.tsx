@@ -13,6 +13,7 @@ import { RouteErrorElement } from '@/app/ErrorBoundary';
  */
 const Login = lazy(() => import('@/features/auth').then((m) => ({ default: m.Login })));
 const ResetPassword = lazy(() => import('@/features/auth').then((m) => ({ default: m.ResetPassword })));
+const SignUp = lazy(() => import('@/features/auth').then((m) => ({ default: m.SignUp })));
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
 const PlaceholderPage = lazy(() => import('@/pages/PlaceholderPage'));
 const ForbiddenPage = lazy(() => import('@/pages/ForbiddenPage'));
@@ -33,8 +34,8 @@ export const router = createBrowserRouter([
       { path: 'login', element: <Login /> },
       // Receives the passwordChangeToken via navigation state (first-time user flow).
       { path: 'reset-password', element: <ResetPassword /> },
-      // Built in a later phase; placeholders keep the links from 404ing.
-      { path: 'register', element: <PlaceholderPage /> },
+      { path: 'sign-up', element: <SignUp /> },
+      // Built in a later phase; placeholder keeps the link from 404ing.
       { path: 'forgot-password', element: <PlaceholderPage /> },
     ],
   },

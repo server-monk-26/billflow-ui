@@ -136,7 +136,7 @@ export function Login() {
 
       <p style={{ textAlign: 'center', margin: 0, color: 'var(--text-2)', fontSize: 'var(--fs-label)' }}>
         {t('login.noAccount')}{' '}
-        <Link to="/auth/register" style={linkStyle}>
+        <Link to="/auth/sign-up" style={linkStyle}>
           {t('login.register')}
         </Link>
       </p>

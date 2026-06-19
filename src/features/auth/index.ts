@@ -3,8 +3,11 @@ import './i18n';
 
 export { Login } from './components/Login';
 export { ResetPassword } from './components/ResetPassword';
+export { SignUp } from './components/SignUp';
 export { loginFormSchema, makeLoginSchema } from './model/loginSchema';
 export type { LoginFormValues } from './model/loginSchema';
+export { makeSignUpSchema } from './model/signUpSchema';
+export type { SignUpFormValues } from './model/signUpSchema';
 export { evaluatePassword, PASSWORD_RULES } from './model/passwordStrength';
 export type { PasswordStrength } from './model/passwordStrength';
 export { makeResetSchema } from './model/resetSchema';

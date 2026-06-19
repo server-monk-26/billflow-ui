@@ -27,6 +27,8 @@ export function TextInput({
   fullWidth = true,
   placeholder,
   autoComplete,
+  maxLength,
+  inputMode,
   startAdornment,
   endAdornment,
   inputRef,
@@ -46,7 +48,12 @@ export function TextInput({
     notched: false,
     required,
     fullWidth,
-    inputProps: { 'aria-describedby': describedBy, 'data-testid': testId },
+    inputProps: {
+      'aria-describedby': describedBy,
+      'data-testid': testId,
+      ...(maxLength !== undefined ? { maxLength } : {}),
+      ...(inputMode !== undefined ? { inputMode } : {}),
+    },
     sx: {
       borderRadius: 'var(--r)',
       minHeight: 'var(--row-h)',
