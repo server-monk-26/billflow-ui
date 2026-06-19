@@ -13,8 +13,13 @@ export interface DropdownProps<T extends string | number = string> {
   value: T | null;
   onChange: (value: T) => void;
   placeholder?: string;
-  /** Accessible name for the trigger (required when there's no visible label). */
+  /** Accessible name for the trigger (required when there's no visible `label`). */
   ariaLabel?: string;
+  /** Visible field label rendered above the control (form use). */
+  label?: string;
+  /** Error message; presence switches the control into the error state. */
+  error?: string;
+  required?: boolean;
   leadingIcon?: ReactNode;
   size?: 'sm' | 'md';
   disabled?: boolean;

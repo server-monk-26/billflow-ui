@@ -1,6 +1,9 @@
 export {
   orgReducer,
   orgLoaded,
+  setBusinessDetails,
+  addLegalEntity,
+  addStorageUnit,
   setActiveLegalEntity,
   setActiveStorageUnit,
   clearOrg,

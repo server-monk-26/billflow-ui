@@ -26,6 +26,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: true,
+    // Multi-step RTL flows (wizards) can exceed the 5s default under full-suite load.
+    testTimeout: 20000,
     // Unit/component tests live in src; e2e/ is Playwright's.
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['e2e/**', 'node_modules/**', 'dist/**'],

@@ -84,6 +84,27 @@ const orgSlice = createSlice({
       state.activeStorageUnitId =
         storageUnits.find((u) => u.isDefault)?.id ?? storageUnits[0]?.id ?? null;
     },
+    /** Onboarding: update the captured business details (and lifecycle status). */
+    setBusinessDetails(
+      state,
+      action: PayloadAction<{ businessType?: string | null; sector?: string | null; status?: string }>,
+    ) {
+      if (!state.business) return;
+      const { businessType, sector, status } = action.payload;
+      if (businessType !== undefined) state.business.businessType = businessType;
+      if (sector !== undefined) state.business.sector = sector;
+      if (status !== undefined) state.business.status = status;
+    },
+    /** Onboarding: add a newly-created legal entity (becomes active if none is selected). */
+    addLegalEntity(state, action: PayloadAction<LegalEntity>) {
+      state.legalEntities.push(action.payload);
+      if (!state.activeLegalEntityId) state.activeLegalEntityId = action.payload.id;
+    },
+    /** Onboarding: add a newly-created storage unit (becomes active if none is selected). */
+    addStorageUnit(state, action: PayloadAction<StorageUnit>) {
+      state.storageUnits.push(action.payload);
+      if (!state.activeStorageUnitId) state.activeStorageUnitId = action.payload.id;
+    },
     setActiveLegalEntity(state, action: PayloadAction<string>) {
       state.activeLegalEntityId = action.payload;
     },
@@ -96,7 +117,15 @@ const orgSlice = createSlice({
   },
 });
 
-export const { orgLoaded, setActiveLegalEntity, setActiveStorageUnit, clearOrg } = orgSlice.actions;
+export const {
+  orgLoaded,
+  setBusinessDetails,
+  addLegalEntity,
+  addStorageUnit,
+  setActiveLegalEntity,
+  setActiveStorageUnit,
+  clearOrg,
+} = orgSlice.actions;
 export const orgReducer = orgSlice.reducer;
 
 export interface WithOrg {

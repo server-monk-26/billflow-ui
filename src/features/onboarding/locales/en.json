@@ -1,0 +1,57 @@
+{
+  "title": "Set up your business",
+  "subtitle": "A few more details to get {{business}} ready",
+  "steps": {
+    "business": "Business",
+    "legalEntity": "Legal Entity",
+    "storageUnit": "Storage Unit"
+  },
+  "business": {
+    "title": "Business details",
+    "subtitle": "Tell us about the nature of your business"
+  },
+  "legalEntity": {
+    "title": "Legal business entity",
+    "subtitle": "Your registered entity and GST details"
+  },
+  "storageUnit": {
+    "title": "Storage unit",
+    "subtitle": "Where you store and ship inventory from"
+  },
+  "businessName": "Business name",
+  "businessType": "Business type",
+  "sector": "Sector",
+  "legalName": "Legal name",
+  "entityType": "Legal entity type",
+  "pan": "PAN number",
+  "gstType": "GST type",
+  "gstin": "GST number",
+  "addressLine1": "Address line 1",
+  "addressLine2": "Address line 2",
+  "city": "City",
+  "state": "State",
+  "storageName": "Storage unit name",
+  "storageType": "Storage type",
+  "pincode": "Pincode",
+  "select": "Select…",
+  "back": "Back",
+  "next": "Next",
+  "finish": "Finish setup",
+  "required": {
+    "businessType": "Select a business type",
+    "sector": "Select a sector",
+    "legalName": "Legal name is required",
+    "entityType": "Select an entity type",
+    "gstType": "Select a GST type",
+    "addressLine1": "Address is required",
+    "city": "City is required",
+    "state": "Select a state",
+    "storageName": "Storage unit name is required",
+    "storageType": "Select a storage type"
+  },
+  "invalid": {
+    "pan": "Enter a valid PAN (e.g. ABCDE1234F)",
+    "gstin": "Enter a valid 15-character GSTIN",
+    "pincode": "Enter a valid 6-digit pincode"
+  }
+}

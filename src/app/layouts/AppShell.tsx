@@ -1,5 +1,5 @@
 import { Suspense, useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard,
@@ -69,6 +69,11 @@ export function AppShell() {
   const storageUnits = useAppSelector(selectStorageUnits);
   const activeLegalEntityId = useAppSelector(selectActiveLegalEntityId);
   const activeStorageUnitId = useAppSelector(selectActiveStorageUnitId);
+
+  // A freshly-created business must finish onboarding before using the app.
+  if (business?.status === 'PENDING_ONBOARDING') {
+    return <Navigate to="/onboarding" replace />;
+  }
 
   const nav = filterNav(NAV, has);
 

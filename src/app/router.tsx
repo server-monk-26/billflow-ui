@@ -14,6 +14,9 @@ import { RouteErrorElement } from '@/app/ErrorBoundary';
 const Login = lazy(() => import('@/features/auth').then((m) => ({ default: m.Login })));
 const ResetPassword = lazy(() => import('@/features/auth').then((m) => ({ default: m.ResetPassword })));
 const SignUp = lazy(() => import('@/features/auth').then((m) => ({ default: m.SignUp })));
+const OnboardingWizard = lazy(() =>
+  import('@/features/onboarding').then((m) => ({ default: m.OnboardingWizard })),
+);
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
 const PlaceholderPage = lazy(() => import('@/pages/PlaceholderPage'));
 const ForbiddenPage = lazy(() => import('@/pages/ForbiddenPage'));
@@ -41,6 +44,16 @@ export const router = createBrowserRouter([
   },
   // Back-compat: redirect the old auth path.
   { path: '/login', element: <Navigate to="/auth/login" replace /> },
+  {
+    // Focused full-screen wizard (no app shell); auth required.
+    path: '/onboarding',
+    element: (
+      <ProtectedRoute>
+        {lazyRoute(<OnboardingWizard />)}
+      </ProtectedRoute>
+    ),
+    errorElement: <RouteErrorElement />,
+  },
   {
     path: '/403',
     element: lazyRoute(<ForbiddenPage />),
