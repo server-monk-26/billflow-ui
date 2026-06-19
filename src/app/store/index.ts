@@ -3,6 +3,7 @@ import { setupListeners } from '@reduxjs/toolkit/query';
 import { baseApi } from '@/shared/api';
 import { authReducer } from '@/shared/auth';
 import { tenantReducer } from '@/shared/tenant';
+import { orgReducer } from '@/shared/org';
 import { uiReducer, persistUi } from '@/shared/theme';
 import { auditMiddleware } from '@/shared/audit';
 
@@ -14,6 +15,7 @@ const rootReducer = combineReducers({
   ui: uiReducer,
   auth: authReducer,
   tenant: tenantReducer,
+  org: orgReducer,
   [baseApi.reducerPath]: baseApi.reducer,
 });
 

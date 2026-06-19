@@ -4,9 +4,30 @@
   },
   "nav": {
     "dashboard": "Dashboard",
-    "invoices": "Invoices",
-    "customers": "Customers",
-    "settings": "Settings"
+    "purchase": "Purchase",
+    "purchaseOrder": "Purchase Order",
+    "sale": "Sale",
+    "deliveryChallan": "Delivery Challan",
+    "inventory": "Inventory",
+    "masterData": "Master Data",
+    "product": "Product",
+    "customer": "Customer",
+    "supplier": "Supplier",
+    "report": "Report",
+    "reportInventory": "Inventory",
+    "reportProduct": "Product",
+    "reportSales": "Sales",
+    "reportPurchase": "Purchase",
+    "admin": "Admin",
+    "employeeManagement": "Employee Management",
+    "roles": "Role",
+    "settings": "Settings",
+    "legalEntities": "Legal Entity",
+    "storageUnits": "Storage Unit"
+  },
+  "context": {
+    "legalEntity": "Legal entity",
+    "storageUnit": "Storage unit"
   },
   "actions": {
     "save": "Save",

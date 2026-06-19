@@ -10,6 +10,7 @@ import {
   tokenStorage,
 } from '@/shared/auth';
 import { selectActiveTenantId, clearTenant, setActiveTenant } from '@/shared/tenant';
+import { clearOrg } from '@/shared/org';
 import { selectLocale, pushToast } from '@/shared/theme';
 import { logger } from '@/shared/logger';
 import { i18n } from '@/shared/i18n';
@@ -68,6 +69,7 @@ export function AppSideEffects({ children }: { children: React.ReactNode }) {
       tokenStorage.clear();
       dispatch(loggedOut());
       dispatch(clearTenant());
+      dispatch(clearOrg());
       // Reset server cache so no tenant/user data bleeds into the next session (§11).
       dispatch(baseApi.util.resetApiState());
     });

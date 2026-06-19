@@ -51,9 +51,8 @@ export interface LoginSucceededPayload {
 
 export interface ProfileLoadedPayload {
   user: User;
+  roles: string[];
   permissions: string[];
-  menus: MenuItem[];
-  featureFlags: Record<string, boolean>;
 }
 
 const authSlice = createSlice({
@@ -72,13 +71,12 @@ const authSlice = createSlice({
       state.tenantId = tenantId;
       state.roles = roles;
     },
-    /** Fill the richer profile once it's fetched (e.g. GET /auth user info). */
+    /** Fill the richer profile once /me is fetched (user + server-driven roles/permissions). */
     profileLoaded(state, action: PayloadAction<ProfileLoadedPayload>) {
-      const { user, permissions, menus, featureFlags } = action.payload;
+      const { user, roles, permissions } = action.payload;
       state.user = user;
+      state.roles = roles;
       state.permissions = permissions;
-      state.menus = menus;
-      state.featureFlags = featureFlags;
     },
     loggedOut() {
       return initialState;
