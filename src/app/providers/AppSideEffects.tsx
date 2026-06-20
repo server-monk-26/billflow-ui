@@ -50,9 +50,10 @@ export function AppSideEffects({ children }: { children: React.ReactNode }) {
       // Reset server cache so no user data bleeds into the next session (§11).
       dispatch(baseApi.util.resetApiState());
     });
+    // Show an error toast for every failed API call, using the backend's message.
+    // (A 401 that is silently refreshed + retried never reaches here — the interceptor
+    // returns the retried response — so only genuine failures surface a toast.)
     apiBridge.registerErrorHandler((error) => {
-      // 401s are handled by the refresh/logout flow; don't double-toast them.
-      if (error.status === 401) return;
       dispatch(pushToast({ variant: 'error', message: error.message }));
     });
   }, [dispatch]);

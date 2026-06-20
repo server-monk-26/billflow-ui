@@ -59,7 +59,7 @@ export function AppShell() {
   const dispatch = useAppDispatch();
   const { mode, toggle } = useThemeMode();
   const { has } = usePermissions();
-  const [logout] = useLogoutMutation();
+  const [logout, { isLoading: loggingOut }] = useLogoutMutation();
 
   // Loads GET /me into the global store on the authenticated home page.
   useLoadCurrentUser();
@@ -77,9 +77,15 @@ export function AppShell() {
 
   const nav = filterNav(NAV, has);
 
-  const signOut = () => {
-    // Revoke the session server-side (best effort), then clear local state.
-    void logout().unwrap().catch(() => undefined);
+  const signOut = async () => {
+    // Revoke the session server-side first (the Bearer token is attached by the interceptor),
+    // then clear local state — clearing earlier would strip the token before the request is sent.
+    // We log out locally regardless of the server result. ProtectedRoute then redirects to login.
+    try {
+      await logout().unwrap();
+    } catch {
+      // ignore — local logout proceeds anyway
+    }
     tokenStorage.clear();
     dispatch(loggedOut());
     dispatch(clearCurrentUser());
@@ -131,7 +137,13 @@ export function AppShell() {
           <button type="button" className="icon-btn" onClick={toggle} aria-label={t('theme.toggle')}>
             {mode === 'dark' ? <Sun size={16} strokeWidth={1.6} /> : <Moon size={16} strokeWidth={1.6} />}
           </button>
-          <button type="button" className="icon-btn" onClick={signOut} aria-label={t('actions.signOut')}>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => void signOut()}
+            disabled={loggingOut}
+            aria-label={t('actions.signOut')}
+          >
             <LogOut size={16} strokeWidth={1.6} />
           </button>
         </div>

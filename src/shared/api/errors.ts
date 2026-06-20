@@ -26,9 +26,13 @@ interface BackendErrorBody {
 }
 
 export function isAppError(value: unknown): value is AppError {
+  // Note the `!instanceof Error` guard: an Axios v1 AxiosError also has status/code/message,
+  // so without it a raw AxiosError would be mistaken for an already-normalized AppError and
+  // returned unchanged (losing the backend message + leaking a non-serializable value).
   return (
     typeof value === 'object' &&
     value !== null &&
+    !(value instanceof Error) &&
     'status' in value &&
     'code' in value &&
     'message' in value
